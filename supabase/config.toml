@@ -1,0 +1,10 @@
+project_id = "mudra-mend"
+
+[functions.create-cashfree-order]
+verify_jwt = true
+
+[functions.verify-cashfree-payment]
+verify_jwt = true
+
+[functions.cashfree-webhook]
+verify_jwt = false

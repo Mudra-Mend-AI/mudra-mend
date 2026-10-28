@@ -18,6 +18,7 @@ export default function Transactions() {
   const [toDate, setToDate] = useState('');
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Transaction | null>(null);
+  const [error, setError] = useState('');
   const pageSize = 10;
 
   const load = useCallback(async () => {
@@ -32,14 +33,20 @@ export default function Transactions() {
       return;
     }
     setLoading(true);
+    setError('');
     let q = supabase.from('transactions').select('*').or(`sender_id.eq.${profile!.id},receiver_id.eq.${profile!.id}`).order('created_at', { ascending: false });
     if (statusFilter !== 'all') q = q.eq('status', statusFilter);
     if (fromDate) q = q.gte('created_at', fromDate);
     if (toDate) q = q.lte('created_at', toDate + 'T23:59:59');
     if (search) q = q.ilike('reference_id', `%${search}%`);
     q = q.range(page * pageSize, (page + 1) * pageSize - 1);
-    const { data } = await q;
-    setTransactions((data ?? []) as Transaction[]);
+    const { data, error: queryError } = await q;
+    if (queryError) {
+      setError(queryError.message);
+      setTransactions([]);
+    } else {
+      setTransactions((data ?? []) as Transaction[]);
+    }
     setLoading(false);
   }, [profile, statusFilter, page, isDemoMode, fromDate, toDate, search]);
 
@@ -95,7 +102,14 @@ export default function Transactions() {
       </div>
 
       <Card>
-        {loading ? <LoadingState /> : filtered.length === 0 ? (
+        {loading ? <LoadingState /> : error ? (
+          <div className="px-4 py-8 text-center">
+            <div className="rounded-lg bg-error-50 px-4 py-3 text-sm text-error-700 dark:bg-error-900/30 dark:text-error-300">
+              {error}
+            </div>
+            <button className="btn-secondary mt-4" onClick={load}><RefreshCw size={16} /> Retry</button>
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState icon={<Filter size={40} />} title={t('noData')} subtitle={t('noTransactionsMatch')} />
         ) : (
           <div className="overflow-x-auto">

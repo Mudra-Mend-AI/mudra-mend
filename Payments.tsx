@@ -23,11 +23,14 @@ export default function Payments() {
 
   const loadData = useCallback(async () => {
     if (!profile) return;
-    const [{ data: a }, { data: r }, { data: tx }] = await Promise.all([
+    const [{ data: a, error: aErr }, { data: r, error: rErr }, { data: tx, error: txErr }] = await Promise.all([
       supabase.from('bank_accounts').select('*').eq('user_id', profile.id).order('is_preferred', { ascending: false }),
       supabase.from('recipients').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('transactions').select('*').eq('sender_id', profile.id).order('created_at', { ascending: false }).limit(5),
     ]);
+    if (aErr) console.error('Failed to load bank accounts:', aErr.message);
+    if (rErr) console.error('Failed to load recipients:', rErr.message);
+    if (txErr) console.error('Failed to load transactions:', txErr.message);
     setAccounts((a ?? []) as BankAccount[]);
     setRecipients((r ?? []) as Recipient[]);
     setRecentTxns((tx ?? []) as Transaction[]);
@@ -97,6 +100,7 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
   const [useRealGateway, setUseRealGateway] = useState(false);
   const [gatewayOrder, setGatewayOrder] = useState<{ orderId: string; paymentSessionId: string; transactionId: string; referenceId: string } | null>(null);
   const [gatewayError, setGatewayError] = useState('');
+  const [verifying, setVerifying] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetForm = () => {
@@ -205,9 +209,17 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
 
         const orderData = await orderResp.json();
 
-        if (!orderResp.ok || !orderData.paymentSessionId) {
+        if (!orderResp.ok || (!orderData.paymentSessionId && !orderData.alreadyExists)) {
           setSubmitting(false);
           setGatewayError(orderData.error || orderData.details || 'Failed to create Cashfree order');
+          return;
+        }
+
+        if (orderData.alreadyExists && orderData.status !== 'pending') {
+          setResult({ status: orderData.status as Transaction['status'], reference: orderData.referenceId, amount: amt, recipientName: recipientName.trim() });
+          setStep('result');
+          setSubmitting(false);
+          onDone();
           return;
         }
 
@@ -291,26 +303,33 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
 
   const handleVerifyPayment = async (): Promise<void> => {
     if (!gatewayOrder) return;
-    const session = await supabase.auth.getSession();
-    const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-cashfree-payment`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.data.session?.access_token}`,
-      },
-      body: JSON.stringify({ orderId: gatewayOrder.orderId, transactionId: gatewayOrder.transactionId }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) {
-      setResult({ status: 'failed', reference: gatewayOrder.referenceId, amount: parseFloat(amount), recipientName: recipientName.trim() });
+    setVerifying(true);
+    setGatewayError('');
+    try {
+      const session = await supabase.auth.getSession();
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-cashfree-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.data.session?.access_token}`,
+        },
+        body: JSON.stringify({ orderId: gatewayOrder.orderId, transactionId: gatewayOrder.transactionId }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setVerifying(false);
+        setGatewayError(data.error || data.details || 'Payment verification failed. Click "Verify payment status" to retry.');
+        return;
+      }
+      const finalStatus = data.status as Transaction['status'];
+      setResult({ status: finalStatus, reference: gatewayOrder.referenceId, amount: parseFloat(amount), recipientName: recipientName.trim() });
       setStep('result');
+      setVerifying(false);
       onDone();
-      return;
+    } catch (err) {
+      setVerifying(false);
+      setGatewayError(err instanceof Error ? err.message : 'Network error during verification. Click "Verify payment status" to retry.');
     }
-    const finalStatus = data.status as Transaction['status'];
-    setResult({ status: finalStatus, reference: gatewayOrder.referenceId, amount: parseFloat(amount), recipientName: recipientName.trim() });
-    setStep('result');
-    onDone();
   };
 
   const handleOpenCheckout = async () => {
@@ -524,16 +543,16 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
           )}
 
           <div className="mt-6 flex justify-center gap-3">
-            <button className="btn-secondary" onClick={() => { setStep('assessment'); setGatewayError(''); }}>
+            <button className="btn-secondary" onClick={() => { setStep('assessment'); setGatewayError(''); }} disabled={verifying}>
               <X size={16} /> {t('back')}
             </button>
-            <button className="btn-primary" onClick={handleOpenCheckout}>
-              <CreditCard size={18} /> Open Checkout
+            <button className="btn-primary" onClick={handleOpenCheckout} disabled={verifying}>
+              {verifying ? <Loader2 className="animate-spin" size={18} /> : <CreditCard size={18} />} Open Checkout
             </button>
           </div>
 
-          <button className="mt-4 text-xs text-gray-400 hover:text-gray-600" onClick={handleVerifyPayment}>
-            Already paid? Verify payment status →
+          <button className="mt-4 text-xs text-gray-400 hover:text-gray-600" onClick={handleVerifyPayment} disabled={verifying}>
+            {verifying ? <Loader2 size={12} className="inline animate-spin" /> : null} Already paid? Verify payment status →
           </button>
         </Card>
       </div>
