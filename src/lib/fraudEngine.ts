@@ -430,3 +430,16 @@ export async function saveAssessment(result: AssessmentResult, transactionId: st
   }
   return data?.id ?? null;
 }
+
+export function getAiRecommendedAction(riskLevel: AssessmentResult['riskLevel'], riskScore: number): string {
+  if (riskLevel === 'blocked' || riskScore >= 80) {
+    return 'Block transaction — report suspected fraud and freeze recipient contact';
+  }
+  if (riskLevel === 'high') {
+    return 'Additional verification required — contact the bank and verify recipient identity before proceeding';
+  }
+  if (riskLevel === 'medium') {
+    return 'Monitor — verify recipient through a trusted channel and confirm transaction details';
+  }
+  return 'Monitor — standard processing, no additional action required';
+}

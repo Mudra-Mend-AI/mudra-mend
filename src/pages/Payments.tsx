@@ -3,7 +3,7 @@ import { ArrowLeftRight, QrCode, HandCoins, Send, ShieldCheck, AlertTriangle, Lo
 import { useAuth } from '@/context/AuthContext';
 import { useI18n } from '@/i18n/I18nContext';
 import { supabase, type BankAccount, type Recipient, type Transaction } from '@/lib/supabase';
-import { runFraudAssessment, saveAssessment, type AssessmentResult } from '@/lib/fraudEngine';
+import { runFraudAssessment, saveAssessment, getAiRecommendedAction, type AssessmentResult } from '@/lib/fraudEngine';
 import { formatCurrency, validateIfsc, validateMobile, downloadCsv } from '@/lib/utils';
 import { Card, LoadingState, EmptyState, Badge, statusBadge, ConfirmDialog } from '@/components/ui';
 
@@ -184,6 +184,8 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
     const recipientRef = { name: recipientName, account: recipientAccount || null, ifsc: recipientIfsc || null, upi: recipientUpi || null, mobile: recipientMobile || null };
     const idempotencyKey = `${userId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+    const aiAction = getAiRecommendedAction(assessment.riskLevel, assessment.riskScore);
+
     if (useRealGateway) {
       // Real Cashfree Sandbox path: create order via edge function
       try {
@@ -204,6 +206,8 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
             paymentMode,
             assessmentId,
             idempotencyKey,
+            riskScore: assessment.riskScore,
+            aiRecommendedAction: aiAction,
           }),
         });
 
@@ -253,6 +257,8 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
       p_idempotency_key: idempotencyKey,
       p_assessment_risk_level: assessment.riskLevel,
       p_assessment_id: assessmentId,
+      p_risk_score: assessment.riskScore,
+      p_ai_recommended_action: aiAction,
     });
 
     if (fnError || !txn) {
@@ -270,13 +276,14 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
       if (linkError) console.error('Failed to link assessment:', linkError.message);
     }
 
-    if (assessment.riskLevel === 'high') {
+    const alertPriority = assessment.riskLevel === 'high' ? 'high' : assessment.riskLevel === 'medium' ? 'medium' : null;
+    if (alertPriority) {
       const { error: alertError } = await supabase.from('alerts').insert({
         user_id: userId,
         category: 'payment_safety',
-        priority: 'high',
+        priority: alertPriority,
         title: `${t('safetyAlert')}: ${assessment.riskLevel} ${t('riskLevel')}`,
-        body: `${formatCurrency(amt)} → ${recipientName}. ${assessment.riskCategory} (${assessment.riskScore}/100)`,
+        body: `${formatCurrency(amt)} → ${recipientName}. ${assessment.riskCategory} (${assessment.riskScore}/100). ${aiAction}`,
         related_transaction_id: createdTxn.id,
       });
       if (alertError) console.error('Failed to create alert:', alertError.message);
@@ -322,6 +329,16 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
         return;
       }
       const finalStatus = data.status as Transaction['status'];
+      if (finalStatus === 'failed' || finalStatus === 'cancelled') {
+        await supabase.from('alerts').insert({
+          user_id: userId,
+          category: 'payment_safety',
+          priority: 'high',
+          title: `Payment ${finalStatus}: ${gatewayOrder.referenceId}`,
+          body: `Payment of ${formatCurrency(parseFloat(amount))} to ${recipientName.trim()} was ${finalStatus}. Reference: ${gatewayOrder.referenceId}`,
+          related_transaction_id: gatewayOrder.transactionId,
+        });
+      }
       setResult({ status: finalStatus, reference: gatewayOrder.referenceId, amount: parseFloat(amount), recipientName: recipientName.trim() });
       setStep('result');
       setVerifying(false);

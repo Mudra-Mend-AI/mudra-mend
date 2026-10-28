@@ -124,6 +124,8 @@ Deno.serve(async (req: Request) => {
         idempotency_key: idempotencyKey || null,
         gateway: "cashfree",
         gateway_order_id: orderId,
+        risk_score: body.riskScore ?? null,
+        ai_recommended_action: body.aiRecommendedAction ?? null,
       })
       .select()
       .single();
@@ -207,4 +209,4 @@ Deno.serve(async (req: Request) => {
     });
   }
 });
-// create-cashfree-order v2
+// create-cashfree-order v3

@@ -86,6 +86,8 @@ export interface Transaction {
   gateway: string | null;
   gateway_order_id: string | null;
   gateway_payment_id: string | null;
+  risk_score: number | null;
+  ai_recommended_action: string | null;
   created_at: string;
   updated_at: string;
 }

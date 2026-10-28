@@ -66,11 +66,11 @@ export const DEMO_PROFILES: Record<Role, DemoProfile> = {
 
 // Demo transaction data
 export const DEMO_TRANSACTIONS = [
-  { id: 't1', recipient_ref: { name: 'Rajesh K.' }, amount: 25000, status: 'pending' as const, reference_id: 'SIM-A1B2C', is_simulated: true, created_at: new Date(Date.now() - 3600000).toISOString(), payment_mode: 'upi' as const },
-  { id: 't2', recipient_ref: { name: 'Priya S.' }, amount: 5000, status: 'success' as const, reference_id: 'SIM-D4E5F', is_simulated: true, created_at: new Date(Date.now() - 7200000).toISOString(), payment_mode: 'upi' as const },
-  { id: 't3', recipient_ref: { name: 'Amit G.' }, amount: 75000, status: 'failed' as const, reference_id: 'SIM-G7H8I', is_simulated: true, created_at: new Date(Date.now() - 10800000).toISOString(), payment_mode: 'bank_transfer' as const },
-  { id: 't4', recipient_ref: { name: 'Sneha P.' }, amount: 1200, status: 'success' as const, reference_id: 'SIM-J9K0L', is_simulated: true, created_at: new Date(Date.now() - 86400000).toISOString(), payment_mode: 'qr' as const },
-  { id: 't5', recipient_ref: { name: 'Unknown' }, amount: 48000, status: 'cancelled' as const, reference_id: 'BLK-M1N2O', is_simulated: true, created_at: new Date(Date.now() - 172800000).toISOString(), payment_mode: 'upi' as const },
+  { id: 't1', recipient_ref: { name: 'Rajesh K.' }, amount: 25000, status: 'pending' as const, reference_id: 'SIM-A1B2C', is_simulated: true, created_at: new Date(Date.now() - 3600000).toISOString(), payment_mode: 'upi' as const, risk_score: 45, ai_recommended_action: 'Monitor — verify recipient through a trusted channel and confirm transaction details' },
+  { id: 't2', recipient_ref: { name: 'Priya S.' }, amount: 5000, status: 'success' as const, reference_id: 'SIM-D4E5F', is_simulated: true, created_at: new Date(Date.now() - 7200000).toISOString(), payment_mode: 'upi' as const, risk_score: 12, ai_recommended_action: 'Monitor — standard processing, no additional action required' },
+  { id: 't3', recipient_ref: { name: 'Amit G.' }, amount: 75000, status: 'failed' as const, reference_id: 'SIM-G7H8I', is_simulated: true, created_at: new Date(Date.now() - 10800000).toISOString(), payment_mode: 'bank_transfer' as const, risk_score: 68, ai_recommended_action: 'Additional verification required — contact the bank and verify recipient identity before proceeding' },
+  { id: 't4', recipient_ref: { name: 'Sneha P.' }, amount: 1200, status: 'success' as const, reference_id: 'SIM-J9K0L', is_simulated: true, created_at: new Date(Date.now() - 86400000).toISOString(), payment_mode: 'qr' as const, risk_score: 8, ai_recommended_action: 'Monitor — standard processing, no additional action required' },
+  { id: 't5', recipient_ref: { name: 'Unknown' }, amount: 48000, status: 'cancelled' as const, reference_id: 'BLK-M1N2O', is_simulated: true, created_at: new Date(Date.now() - 172800000).toISOString(), payment_mode: 'upi' as const, risk_score: 92, ai_recommended_action: 'Block transaction — report suspected fraud and freeze recipient contact' },
 ];
 
 export const DEMO_ALERTS = [

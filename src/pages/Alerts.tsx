@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { AlertTriangle, Check, Filter, Search, X, FlaskConical } from 'lucide-react';
+import { AlertTriangle, Check, Filter, Search, X, FlaskConical, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useI18n } from '@/i18n/I18nContext';
 import { supabase, type Alert } from '@/lib/supabase';
@@ -12,6 +12,7 @@ export default function Alerts() {
   const { t, lang } = useI18n();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Alert | null>(null);
@@ -23,12 +24,34 @@ export default function Alerts() {
       setLoading(false);
       return;
     }
-    const { data } = await supabase.from('alerts').select('*').eq('user_id', profile!.id).order('created_at', { ascending: false });
-    setAlerts((data ?? []) as Alert[]);
+    setLoading(true);
+    setError('');
+    const { data, error: queryError } = await supabase.from('alerts').select('*').eq('user_id', profile!.id).order('created_at', { ascending: false });
+    if (queryError) {
+      setError(queryError.message);
+      setAlerts([]);
+    } else {
+      setAlerts((data ?? []) as Alert[]);
+    }
     setLoading(false);
   }, [profile, isDemoMode]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Realtime subscription for live alert updates
+  useEffect(() => {
+    if (isDemoMode || !profile) return;
+    const channel = supabase
+      .channel('alerts-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'alerts', filter: `user_id=eq.${profile.id}` }, () => {
+        load();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [profile, isDemoMode, load]);
 
   const markRead = async (id: string) => {
     if (!isDemoMode && profile) {
@@ -36,6 +59,7 @@ export default function Alerts() {
       if (error) { console.error('Mark read error:', error.message); return; }
     }
     setAlerts(alerts.map((a) => a.id === id ? { ...a, is_read: true } : a));
+    if (selected && selected.id === id) setSelected({ ...selected, is_read: true });
   };
 
   const markAllRead = async () => {
@@ -68,9 +92,12 @@ export default function Alerts() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{t('alerts')}</h1>
-          <p className="mt-1 text-sm text-gray-500">{t('unread')} {t('alerts')}</p>
+          <p className="mt-1 text-sm text-gray-500">{unread} {t('unread')} {t('alerts')}</p>
         </div>
-        {unread > 0 && <button className="btn-secondary" onClick={markAllRead}><Check size={16} /> {t('markAllRead')}</button>}
+        <div className="flex gap-2">
+          <button className="btn-secondary" onClick={load}><RefreshCw size={16} /></button>
+          {unread > 0 && <button className="btn-secondary" onClick={markAllRead}><Check size={16} /> {t('markAllRead')}</button>}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -90,7 +117,14 @@ export default function Alerts() {
         </div>
       </div>
 
-      {loading ? <LoadingState /> : filtered.length === 0 ? (
+      {loading ? <LoadingState /> : error ? (
+        <Card>
+          <div className="px-4 py-8 text-center">
+            <div className="rounded-lg bg-error-50 px-4 py-3 text-sm text-error-700 dark:bg-error-900/30 dark:text-error-300">{error}</div>
+            <button className="btn-secondary mt-4" onClick={load}><RefreshCw size={16} /> Retry</button>
+          </div>
+        </Card>
+      ) : filtered.length === 0 ? (
         <Card><EmptyState icon={<AlertTriangle size={40} />} title={t('noData')} subtitle={t('noAlertsMatchFilters')} /></Card>
       ) : (
         <div className="space-y-2">
@@ -112,7 +146,7 @@ export default function Alerts() {
         </div>
       )}
 
-      {selected && <AlertDetail alert={selected} onClose={() => setSelected(null)} onMarkRead={() => { markRead(selected.id); setSelected(null); }} lang={lang} />}
+      {selected && <AlertDetail alert={selected} onClose={() => setSelected(null)} onMarkRead={() => { markRead(selected.id); }} lang={lang} />}
     </div>
   );
 }
