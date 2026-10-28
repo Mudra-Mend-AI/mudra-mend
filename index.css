@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; }
+  body { @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 transition-colors; }
+  * { @apply border-gray-200 dark:border-gray-800; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-primary { @apply btn bg-primary-600 text-white hover:bg-primary-700 hover:shadow-glow focus:ring-primary-500; }
+  .btn-secondary { @apply btn bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 dark:hover:bg-gray-700 focus:ring-primary-500; }
+  .btn-danger { @apply btn bg-error-600 text-white hover:bg-error-700 focus:ring-error-500; }
+  .btn-ghost { @apply btn text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 focus:ring-primary-500; }
+  .input { @apply w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500 transition-colors; }
+  .label { @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5; }
+  .card { @apply rounded-xl bg-white shadow-card border border-gray-100 dark:bg-gray-900 dark:border-gray-800 transition-all; }
+  .card-hover { @apply hover:shadow-card-hover hover:-translate-y-0.5; }
+  .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
+  .table-row-hover { @apply hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors; }
+  .section-eyebrow { @apply inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-700 dark:bg-primary-900/30 dark:text-primary-300; }
+  .grid-bg { @apply bg-grid-pattern bg-grid; }
+  .text-gradient { @apply bg-gradient-to-r from-primary-600 to-primary-800 bg-clip-text text-transparent; }
+}
