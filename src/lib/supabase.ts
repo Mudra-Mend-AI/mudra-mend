@@ -221,3 +221,13 @@ export interface BeneficiaryReferral {
   created_at: string;
   updated_at: string;
 }
+
+export interface AuditLog {
+  id: string;
+  actor_id: string;
+  action: string;
+  target_type: string;
+  target_id: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}

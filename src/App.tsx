@@ -48,6 +48,7 @@ import FraudScanner from '@/pages/FraudScanner';
 import FraudPatternExplorer from '@/pages/FraudPatternExplorer';
 import LearningCenter from '@/pages/LearningCenter';
 import IntegrationSettings from '@/pages/admin/IntegrationSettings';
+import AuditReports from '@/pages/AuditReports';
 
 function DashboardRouter() {
   const { profile } = useAuth();
@@ -100,6 +101,7 @@ function AppRoutes() {
         <Route path="users" element={<ProtectedRoute roles={['admin']}><UsersAdmin /></ProtectedRoute>} />
         <Route path="approvals" element={<ProtectedRoute roles={['admin']}><Approvals /></ProtectedRoute>} />
         <Route path="audit-logs" element={<ProtectedRoute roles={['admin', 'auditor']}><AuditLogs /></ProtectedRoute>} />
+        <Route path="audit-reports" element={<ProtectedRoute roles={['admin', 'auditor']}><AuditReports /></ProtectedRoute>} />
         <Route path="ai-monitoring" element={<ProtectedRoute roles={['admin', 'auditor']}><AIMonitoring /></ProtectedRoute>} />
         <Route path="system-health" element={<ProtectedRoute roles={['admin']}><SystemHealth /></ProtectedRoute>} />
         <Route path="datasets" element={<ProtectedRoute><DatasetManagement /></ProtectedRoute>} />

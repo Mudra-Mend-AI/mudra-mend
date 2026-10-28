@@ -4,7 +4,7 @@ import {
   Shield, LayoutDashboard, CreditCard, ArrowLeftRight, Banknote, AlertTriangle,
   FileWarning, FolderKanban, Landmark, HeartHandshake, Lightbulb, BarChart3,
   Settings, LogOut, Bell, Menu, X, Users, CheckCircle, Activity,
-  Brain, MessageSquare, FileText, ChevronDown, Database, Scan, BookOpen, Plug, TrendingUp
+  Brain, MessageSquare, FileText, ChevronDown, Database, Scan, BookOpen, Plug, TrendingUp, FileBarChart
 } from 'lucide-react';
 import { useAuth, roleLabel } from '@/context/AuthContext';
 import { useI18n } from '@/i18n/I18nContext';
@@ -21,7 +21,7 @@ import { DEMO_ALERTS } from '@/lib/demoData';
 interface NavItem {
   to: string;
   icon: ReactNode;
-  labelKey: 'dashboard' | 'payments' | 'bankAccounts' | 'transactions' | 'scamReports' | 'alerts' | 'cases' | 'schemes' | 'ngoOutreach' | 'recommendations' | 'reports' | 'settings' | 'help' | 'support' | 'auditLogs' | 'users' | 'approvals' | 'systemHealth' | 'aiMonitoring' | 'tickets' | 'evidence' | 'timeline' | 'profile' | 'datasets' | 'fraudIntelligence' | 'fraudScanner' | 'fraudPatterns' | 'learningCenter' | 'integrationSettings';
+  labelKey: 'dashboard' | 'payments' | 'bankAccounts' | 'transactions' | 'scamReports' | 'alerts' | 'cases' | 'schemes' | 'ngoOutreach' | 'recommendations' | 'reports' | 'settings' | 'help' | 'support' | 'auditLogs' | 'auditReports' | 'users' | 'approvals' | 'systemHealth' | 'aiMonitoring' | 'tickets' | 'evidence' | 'timeline' | 'profile' | 'datasets' | 'fraudIntelligence' | 'fraudScanner' | 'fraudPatterns' | 'learningCenter' | 'integrationSettings';
 }
 
 const NAV_BY_ROLE: Record<Role, NavItem[]> = {
@@ -48,6 +48,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { to: '/app/cases', icon: <FolderKanban size={20} />, labelKey: 'cases' },
     { to: '/app/ai-monitoring', icon: <Brain size={20} />, labelKey: 'aiMonitoring' },
     { to: '/app/audit-logs', icon: <FileText size={20} />, labelKey: 'auditLogs' },
+    { to: '/app/audit-reports', icon: <FileBarChart size={20} />, labelKey: 'auditReports' },
     { to: '/app/system-health', icon: <Activity size={20} />, labelKey: 'systemHealth' },
     { to: '/app/datasets', icon: <Database size={20} />, labelKey: 'datasets' },
     { to: '/app/integration-settings', icon: <Plug size={20} />, labelKey: 'integrationSettings' },
@@ -85,6 +86,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   auditor: [
     { to: '/app', icon: <LayoutDashboard size={20} />, labelKey: 'dashboard' },
     { to: '/app/audit-logs', icon: <FileText size={20} />, labelKey: 'auditLogs' },
+    { to: '/app/audit-reports', icon: <FileBarChart size={20} />, labelKey: 'auditReports' },
     { to: '/app/cases', icon: <FolderKanban size={20} />, labelKey: 'cases' },
     { to: '/app/ai-monitoring', icon: <Brain size={20} />, labelKey: 'aiMonitoring' },
     { to: '/app/reports', icon: <BarChart3 size={20} />, labelKey: 'reports' },
