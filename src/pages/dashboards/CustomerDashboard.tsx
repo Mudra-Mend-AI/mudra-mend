@@ -27,14 +27,17 @@ export default function CustomerDashboard() {
       return;
     }
     (async () => {
-      const [{ data: accts }, { data: txns }, { data: alts }] = await Promise.all([
-        supabase.from('bank_accounts').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }),
+      const [acctsRes, txnsRes, altsRes] = await Promise.all([
+        supabase.from('bank_accounts').select('*').eq('user_id', profile.id).order('linked_at', { ascending: false }),
         supabase.from('transactions').select('*').eq('sender_id', profile.id).order('created_at', { ascending: false }).limit(5),
         supabase.from('alerts').select('*').eq('user_id', profile.id).eq('is_read', false).order('created_at', { ascending: false }).limit(5),
       ]);
-      setAccounts((accts ?? []) as BankAccount[]);
-      setTransactions((txns ?? []) as Transaction[]);
-      setAlerts((alts ?? []) as Alert[]);
+      if (acctsRes.error) console.error('Dashboard bank_accounts error:', acctsRes.error.message);
+      if (txnsRes.error) console.error('Dashboard transactions error:', txnsRes.error.message);
+      if (altsRes.error) console.error('Dashboard alerts error:', altsRes.error.message);
+      setAccounts((acctsRes.data ?? []) as BankAccount[]);
+      setTransactions((txnsRes.data ?? []) as Transaction[]);
+      setAlerts((altsRes.data ?? []) as Alert[]);
       setLoading(false);
     })();
   }, [profile, isDemoMode]);

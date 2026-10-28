@@ -12,6 +12,7 @@ export default function BankAccounts() {
   const { t, lang } = useI18n();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -22,9 +23,14 @@ export default function BankAccounts() {
       return;
     }
     if (!profile) return;
-    const { data, error } = await supabase.from('bank_accounts').select('*').eq('user_id', profile.id).order('created_at', { ascending: false });
-    if (error) console.error('Bank accounts load error:', error.message);
-    setAccounts((data ?? []) as BankAccount[]);
+    const { data, error } = await supabase.from('bank_accounts').select('*').eq('user_id', profile.id).order('linked_at', { ascending: false });
+    if (error) {
+      setLoadError(error.message);
+      setAccounts([]);
+    } else {
+      setLoadError('');
+      setAccounts((data ?? []) as BankAccount[]);
+    }
     setLoading(false);
   }, [profile, isDemoMode]);
 
@@ -55,6 +61,13 @@ export default function BankAccounts() {
         <StatCard label={t('verified')} value={accounts.filter((a) => a.verification_status === 'verified').length} icon={<Check size={22} />} accent="success" />
         <StatCard label={t('preferred')} value={accounts.filter((a) => a.is_preferred).length} icon={<Star size={22} />} accent="warning" />
       </div>
+
+      {loadError && !isDemoMode && (
+        <div className="rounded-lg bg-error-50 px-4 py-3 text-sm text-error-700 dark:bg-error-900/30 dark:text-error-300">
+          {loadError}
+          <button className="ml-2 text-xs underline" onClick={() => loadAccounts()}>Retry</button>
+        </div>
+      )}
 
       {accounts.length === 0 && !showForm ? (
         <Card><EmptyState icon={<Banknote size={40} />} title={t('noData')} subtitle={t('linkFirstBankAccount')} /></Card>
@@ -170,7 +183,7 @@ function AddBankAccountForm({ onClose, onSaved, userId }: { onClose: () => void;
     });
 
     if (!insertError) {
-      const { data: newAcct } = await supabase.from('bank_accounts').select('id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      const { data: newAcct } = await supabase.from('bank_accounts').select('id').eq('user_id', userId).order('linked_at', { ascending: false }).limit(1).maybeSingle();
       if (isPreferred && newAcct?.id) {
         await supabase.from('bank_accounts').update({ is_preferred: false }).neq('id', newAcct.id).eq('user_id', userId);
       }
