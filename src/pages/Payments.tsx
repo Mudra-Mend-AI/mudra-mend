@@ -253,6 +253,7 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
             idempotencyKey,
             riskScore: assessment.riskScore,
             aiRecommendedAction: aiAction,
+            returnUrl: window.location.origin + window.location.pathname,
           }),
         });
 
@@ -261,6 +262,12 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
         if (!orderResp.ok || (!orderData.paymentSessionId && !orderData.alreadyExists)) {
           setSubmitting(false);
           setGatewayError(orderData.error || orderData.details || 'Failed to create Cashfree order');
+          return;
+        }
+
+        if (orderData.paymentSessionId && typeof orderData.paymentSessionId !== 'string') {
+          setSubmitting(false);
+          setGatewayError('Invalid payment session received from server');
           return;
         }
 
@@ -406,6 +413,12 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
         return;
       }
 
+      if (!gatewayOrder.paymentSessionId || !gatewayOrder.paymentSessionId.trim()) {
+        setVerifying(false);
+        setGatewayError('No valid payment session available. Please go back and retry the payment.');
+        return;
+      }
+
       // Persist order info so we can verify after redirect
       sessionStorage.setItem('cashfree_pending_order', JSON.stringify(gatewayOrder));
 
@@ -432,6 +445,11 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
     try {
       const order = JSON.parse(saved) as { orderId: string; paymentSessionId: string; transactionId: string; referenceId: string };
       sessionStorage.removeItem('cashfree_pending_order');
+      // Clean up any order_id query param from the redirect URL
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('order_id')) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
       setGatewayOrder(order);
       setStep('gateway_checkout');
       // Auto-verify after a short delay to let the UI settle

@@ -54,6 +54,7 @@ Deno.serve(async (req: Request) => {
       paymentMode,
       assessmentId,
       idempotencyKey,
+      returnUrl,
     } = body;
 
     if (!amount || amount <= 0) {
@@ -196,7 +197,9 @@ Deno.serve(async (req: Request) => {
           customer_email: "guest@example.com",
         },
         order_meta: {
-          return_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/verify-cashfree-payment?order_id=${orderId}`,
+          return_url: returnUrl
+            ? `${returnUrl}${returnUrl.includes("?") ? "&" : "?"}order_id=${orderId}`
+            : `${Deno.env.get("SUPABASE_URL")}/functions/v1/verify-cashfree-payment?order_id=${orderId}`,
           payment_methods: null,
         },
       }),

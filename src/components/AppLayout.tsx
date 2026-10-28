@@ -300,6 +300,7 @@ function NotificationBell({ open, setOpen }: { open: boolean; setOpen: (v: boole
   const { t, lang } = useI18n();
   const [alerts, setAlerts] = useReactState<Alert[]>([]);
   const [loading, setLoading] = useReactState(true);
+  const [loadError, setLoadError] = useReactState('');
   const [categoryFilter, setCategoryFilter] = useReactState('all');
 
   useEffect(() => {
@@ -310,16 +311,40 @@ function NotificationBell({ open, setOpen }: { open: boolean; setOpen: (v: boole
     }
     if (!profile) return;
     setLoading(true);
+    setLoadError('');
     supabase
       .from('alerts')
       .select('*')
       .eq('user_id', profile.id)
       .order('created_at', { ascending: false })
       .limit(20)
-      .then(({ data }) => {
-        setAlerts((data ?? []) as Alert[]);
+      .then(({ data, error }) => {
+        if (error) {
+          setLoadError(error.message);
+          setAlerts([]);
+        } else {
+          setAlerts((data ?? []) as Alert[]);
+        }
         setLoading(false);
       });
+  }, [profile, isDemoMode]);
+
+  // Realtime subscription for live alert updates
+  useEffect(() => {
+    if (isDemoMode || !profile) return;
+    const channel = supabase
+      .channel('notif-bell-alerts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'alerts', filter: `user_id=eq.${profile.id}` }, () => {
+        supabase
+          .from('alerts')
+          .select('*')
+          .eq('user_id', profile.id)
+          .order('created_at', { ascending: false })
+          .limit(20)
+          .then(({ data }) => { if (data) setAlerts(data as Alert[]); });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [profile, isDemoMode]);
 
   const unread = alerts.filter((a) => !a.is_read).length;
@@ -342,6 +367,11 @@ function NotificationBell({ open, setOpen }: { open: boolean; setOpen: (v: boole
         if (categoryFilter === 'general') return !['payment_safety', 'account', 'system'].includes(a.category);
         return true;
       });
+
+  const severityDot = (priority: string) => {
+    const colors: Record<string, string> = { critical: 'bg-error-500', high: 'bg-error-400', medium: 'bg-warning-400', low: 'bg-info-400' };
+    return colors[priority] ?? 'bg-gray-400';
+  };
 
   return (
     <div className="relative">
@@ -370,21 +400,43 @@ function NotificationBell({ open, setOpen }: { open: boolean; setOpen: (v: boole
             <div className="max-h-72 overflow-y-auto">
               {loading ? (
                 <div className="py-6 text-center text-sm text-gray-400">{t('loading')}</div>
+              ) : loadError ? (
+                <div className="px-4 py-6 text-center">
+                  <AlertTriangle size={24} className="mx-auto mb-2 text-error-400" />
+                  <p className="text-sm text-error-600 dark:text-error-400">{t('notifError')}</p>
+                  <button className="btn-secondary mt-3 text-xs" onClick={() => {
+                    if (!profile) return;
+                    setLoading(true); setLoadError('');
+                    supabase.from('alerts').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(20)
+                      .then(({ data, error }) => {
+                        if (error) { setLoadError(error.message); setAlerts([]); } else { setAlerts((data ?? []) as Alert[]); }
+                        setLoading(false);
+                      });
+                  }}>{t('retry')}</button>
+                </div>
               ) : filteredAlerts.length === 0 ? (
-                <div className="py-6 text-center text-sm text-gray-400">{t('noData')}</div>
+                <div className="px-4 py-6 text-center">
+                  <Bell size={24} className="mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm text-gray-400">{t('notifEmpty')}</p>
+                </div>
               ) : (
                 filteredAlerts.map((a) => (
                   <div key={a.id} className={`border-b border-gray-50 px-4 py-3 dark:border-gray-700/50 ${!a.is_read ? 'bg-primary-50/50 dark:bg-primary-900/10' : ''}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium">{a.title}</p>
+                      <div className="flex items-start gap-2 min-w-0">
+                        <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${severityDot(a.priority)}`} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{a.title}</p>
+                          <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{a.body}</p>
+                          <p className="mt-1 text-[10px] text-gray-400">{formatDateTime(a.created_at, lang)}</p>
+                        </div>
+                      </div>
                       {!a.is_read && (
                         <button onClick={() => markOneRead(a.id)} className="mt-0.5 flex-shrink-0 text-[10px] font-medium text-primary-600 hover:text-primary-700" title={t('markRead')}>
                           <CheckCircle size={14} />
                         </button>
                       )}
                     </div>
-                    <p className="mt-0.5 text-xs text-gray-500">{a.body}</p>
-                    <p className="mt-1 text-[10px] text-gray-400">{formatDateTime(a.created_at, lang)}</p>
                   </div>
                 ))
               )}
