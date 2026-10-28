@@ -671,6 +671,7 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
           confirmLabel={t('cancel')}
           onConfirm={() => { resetForm(); setShowCancel(false); }}
           onCancel={() => setShowCancel(false)}
+          hideCancel
         />
       </div>
     );

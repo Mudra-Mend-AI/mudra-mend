@@ -98,9 +98,9 @@ export function StatCard({ label, value, icon, trend, accent = 'primary', to }: 
   return <Card>{inner}</Card>;
 }
 
-export function ConfirmDialog({ open, title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', onConfirm, onCancel, danger }: {
+export function ConfirmDialog({ open, title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', onConfirm, onCancel, danger, hideCancel }: {
   open: boolean; title: string; message: string; confirmLabel?: string; cancelLabel?: string;
-  onConfirm: () => void; onCancel: () => void; danger?: boolean;
+  onConfirm: () => void; onCancel: () => void; danger?: boolean; hideCancel?: boolean;
 }) {
   if (!open) return null;
   return (
@@ -109,7 +109,7 @@ export function ConfirmDialog({ open, title, message, confirmLabel = 'Confirm', 
         <h3 className="text-lg font-semibold">{title}</h3>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{message}</p>
         <div className="mt-5 flex justify-end gap-2">
-          <button className="btn-secondary" onClick={onCancel}>{cancelLabel}</button>
+          {!hideCancel && <button className="btn-secondary" onClick={onCancel}>{cancelLabel}</button>}
           <button className={danger ? 'btn-danger' : 'btn-primary'} onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </div>
