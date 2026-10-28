@@ -12,6 +12,51 @@ type PayMode = 'quick' | 'guided';
 
 const ASSESSMENT_TIMEOUT_MS = 12000;
 
+const CASHFREE_SDK_URL = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+let cashfreeInstance: ReturnType<NonNullable<Window['Cashfree']>> | null = null;
+let sdkLoadPromise: Promise<ReturnType<NonNullable<Window['Cashfree']>> | null> | null = null;
+
+function loadCashfreeScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${CASHFREE_SDK_URL}"]`);
+    if (existing) {
+      if (window.Cashfree) { resolve(); return; }
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error('Cashfree SDK script failed to load')));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = CASHFREE_SDK_URL;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Cashfree SDK script failed to load'));
+    document.head.appendChild(script);
+  });
+}
+
+async function ensureCashfreeSDK(): Promise<ReturnType<NonNullable<Window['Cashfree']>> | null> {
+  if (cashfreeInstance) return cashfreeInstance;
+  if (sdkLoadPromise) return sdkLoadPromise;
+
+  sdkLoadPromise = (async () => {
+    try {
+      await loadCashfreeScript();
+      if (!window.Cashfree) {
+        console.error('Cashfree SDK loaded but window.Cashfree is not defined');
+        return null;
+      }
+      cashfreeInstance = window.Cashfree({ mode: 'sandbox' });
+      return cashfreeInstance;
+    } catch (err) {
+      console.error('Cashfree SDK load error:', err);
+      sdkLoadPromise = null;
+      return null;
+    }
+  })();
+
+  return sdkLoadPromise;
+}
+
 export default function Payments() {
   const { profile } = useAuth();
   const { t, lang } = useI18n();
@@ -350,20 +395,30 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
   };
 
   const handleOpenCheckout = async () => {
-    if (!gatewayOrder || !window.cashfree) {
-      setGatewayError('Cashfree SDK not loaded. Please refresh the page and try again.');
-      return;
-    }
+    if (!gatewayOrder) return;
+    setGatewayError('');
+    setVerifying(true);
     try {
-      window.cashfree.checkout({
+      const cf = await ensureCashfreeSDK();
+      if (!cf) {
+        setVerifying(false);
+        setGatewayError('Cashfree SDK could not be loaded. Check your network connection and try again.');
+        return;
+      }
+      const result = await cf.checkout({
         paymentSessionId: gatewayOrder.paymentSessionId,
-        redirectTarget: '_self',
+        redirectTarget: '_modal',
         onSuccess: () => { handleVerifyPayment(); },
         onFailure: () => { handleVerifyPayment(); },
         onClose: () => { handleVerifyPayment(); },
       });
-    } catch {
-      setGatewayError('Failed to open Cashfree checkout. Please try again.');
+      if (result?.error) {
+        setVerifying(false);
+        setGatewayError('Checkout closed or encountered an error. Click "Verify payment status" to check the result.');
+      }
+    } catch (err) {
+      setVerifying(false);
+      setGatewayError(err instanceof Error ? err.message : 'Failed to open Cashfree checkout. Please try again.');
     }
   };
 
@@ -556,6 +611,7 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
           {gatewayError && (
             <div className="mt-4 rounded-lg bg-error-50 px-4 py-3 text-sm text-error-700 dark:bg-error-900/30 dark:text-error-300">
               {gatewayError}
+              <button className="ml-2 text-xs underline" onClick={() => { setGatewayError(''); }}>Dismiss</button>
             </div>
           )}
 
