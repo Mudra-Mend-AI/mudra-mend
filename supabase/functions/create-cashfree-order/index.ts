@@ -197,6 +197,7 @@ Deno.serve(async (req: Request) => {
         },
         order_meta: {
           return_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/verify-cashfree-payment?order_id=${orderId}`,
+          payment_methods: null,
         },
       }),
     });
@@ -209,4 +210,4 @@ Deno.serve(async (req: Request) => {
     });
   }
 });
-// create-cashfree-order v3
+// create-cashfree-order v4

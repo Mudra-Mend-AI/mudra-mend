@@ -405,22 +405,86 @@ function PayForm({ accounts, recipients, userId, lang, onDone }: { accounts: Ban
         setGatewayError('Cashfree SDK could not be loaded. Check your network connection and try again.');
         return;
       }
+
+      // Persist order info so we can verify after redirect
+      sessionStorage.setItem('cashfree_pending_order', JSON.stringify(gatewayOrder));
+
       const result = await cf.checkout({
         paymentSessionId: gatewayOrder.paymentSessionId,
-        redirectTarget: '_modal',
-        onSuccess: () => { handleVerifyPayment(); },
-        onFailure: () => { handleVerifyPayment(); },
-        onClose: () => { handleVerifyPayment(); },
+        redirectTarget: '_self',
       });
+
+      // With _self, if the SDK resolves without redirecting, handle it
       if (result?.error) {
         setVerifying(false);
-        setGatewayError('Checkout closed or encountered an error. Click "Verify payment status" to check the result.');
+        setGatewayError('Checkout could not be opened. Click "Verify payment status" to check the result, or try again.');
       }
     } catch (err) {
       setVerifying(false);
       setGatewayError(err instanceof Error ? err.message : 'Failed to open Cashfree checkout. Please try again.');
     }
   };
+
+  // Auto-verify payment when returning from Cashfree redirect
+  const restorePendingOrder = useCallback(() => {
+    const saved = sessionStorage.getItem('cashfree_pending_order');
+    if (!saved) return;
+    try {
+      const order = JSON.parse(saved) as { orderId: string; paymentSessionId: string; transactionId: string; referenceId: string };
+      sessionStorage.removeItem('cashfree_pending_order');
+      setGatewayOrder(order);
+      setStep('gateway_checkout');
+      // Auto-verify after a short delay to let the UI settle
+      setTimeout(() => {
+        // Call verify directly since handleVerifyPayment depends on gatewayOrder state
+        (async () => {
+          setVerifying(true);
+          setGatewayError('');
+          try {
+            const session = await supabase.auth.getSession();
+            const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-cashfree-payment`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.data.session?.access_token}`,
+              },
+              body: JSON.stringify({ orderId: order.orderId, transactionId: order.transactionId }),
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+              setVerifying(false);
+              setGatewayError(data.error || data.details || 'Payment verification failed. Click "Verify payment status" to retry.');
+              return;
+            }
+            const finalStatus = data.status as Transaction['status'];
+            if (finalStatus === 'failed' || finalStatus === 'cancelled') {
+              await supabase.from('alerts').insert({
+                user_id: userId,
+                category: 'payment_safety',
+                priority: 'high',
+                title: `Payment ${finalStatus}: ${order.referenceId}`,
+                body: `Payment was ${finalStatus}. Reference: ${order.referenceId}`,
+                related_transaction_id: order.transactionId,
+              });
+            }
+            setResult({ status: finalStatus, reference: order.referenceId, amount: parseFloat(amount), recipientName: recipientName.trim() });
+            setStep('result');
+            setVerifying(false);
+            onDone();
+          } catch {
+            setVerifying(false);
+            setGatewayError('Network error during verification. Click "Verify payment status" to retry.');
+          }
+        })();
+      }, 500);
+    } catch {
+      sessionStorage.removeItem('cashfree_pending_order');
+    }
+  }, [userId, amount, recipientName, onDone]);
+
+  useEffect(() => {
+    restorePendingOrder();
+  }, [restorePendingOrder]);
 
   // --- Step: Checking (safety popup) ---
   if (step === 'checking') {
